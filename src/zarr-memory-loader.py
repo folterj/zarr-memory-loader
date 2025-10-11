@@ -46,4 +46,4 @@ if __name__ == '__main__':
 
     print('time', timeit.timeit(lambda: random_read(), number=100))
     used_mem_start4 = process.memory_info().rss
-    print(f'mem+ {used_mem_start4 - used_mem_start3:_}')
+    print(f'used mem+ {used_mem_start4 - used_mem_start3:_}')
