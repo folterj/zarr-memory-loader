@@ -37,6 +37,7 @@ if __name__ == '__main__':
     data = node[0]
     shape = data.shape
     tile_size = 256
+    n = 100
     print('random read tile size', tile_size, 'in shape', shape)
 
     def random_read():
@@ -44,6 +45,6 @@ if __name__ == '__main__':
         x = np.random.randint(shape[-1] - tile_size)
         a = data[0][0][0][y:y+tile_size][x:x+tile_size]   # access data
 
-    print('time', timeit.timeit(lambda: random_read(), number=100))
+    print('time / read', timeit.timeit(lambda: random_read(), number=n) / n)
     used_mem_start4 = process.memory_info().rss
     print(f'used mem+ {used_mem_start4 - used_mem_start3:_}')
