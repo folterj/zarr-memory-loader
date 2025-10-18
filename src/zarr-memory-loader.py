@@ -1,22 +1,25 @@
 import numpy as np
 import os
 import psutil
+import time
 import timeit
 
 from src.ZarrMemorySource import ZarrMemorySource
 
 
-if __name__ == '__main__':
-    filename = 'D:/slides/9838562/9838562.zarr'
-
+def read_memory_source(filename):
     process = psutil.Process(os.getpid())
 
     used_mem_start = process.memory_info().rss
 
+    start_time = time.time()
     source = ZarrMemorySource(filename)
-    source.load()
+    #source.load()
+    source.load_and_compress(compression='jpegxr', swap_axes=True)
+    dtime = time.time() - start_time
+    print(f'init time {dtime:.1f} s')
     used_mem_start2 = process.memory_info().rss
-    print(f'used mem {used_mem_start2 - used_mem_start:_}')
+    print(f'used mem {used_mem_start2 - used_mem_start:,}')
 
     root = source.get_root()
     print(root.info)
@@ -27,24 +30,40 @@ if __name__ == '__main__':
             print('shape', data.shape)
             size = np.prod(data.shape) * data.itemsize
             print('size', size)
-            a = data[0][0][0][0][0]   # access data
+            a = np.array(data[..., 0, 0, 0])
             total_size += size
-    print(f'total size {total_size:_}')
+    print(f'total size {total_size:,}')
     used_mem_start3 = process.memory_info().rss
-    print(f'used mem {used_mem_start3 - used_mem_start:_}')
+    print(f'used mem {used_mem_start3 - used_mem_start:,}')
 
     node = root[list(root.keys())[-1]]
     data = node[0]
     shape = data.shape
     tile_size = 256
-    n = 100
+    n = 1000
     print('random read tile size', tile_size, 'in shape', shape)
+    dimy, dimx = None, None
+    for i0 in range(len(shape), 0, -1):
+        i = i0 - 1
+        if shape[i] > 4:
+            if dimx is None:
+                dimx = i
+            elif dimy is None:
+                dimy = i
 
     def random_read():
-        y = np.random.randint(shape[-2] - tile_size)
-        x = np.random.randint(shape[-1] - tile_size)
-        a = data[0][0][0][y:y+tile_size][x:x+tile_size]   # access data
+        y = np.random.randint(shape[dimy] - tile_size)
+        x = np.random.randint(shape[dimx] - tile_size)
+        if dimx > 0:    # assume c axis at end
+            a = np.array(data[..., y:y + tile_size, x:x + tile_size, :])
+        else:
+            a = np.array(data[..., y:y + tile_size, x:x + tile_size])
 
     print('time / read', timeit.timeit(lambda: random_read(), number=n) / n)
     used_mem_start4 = process.memory_info().rss
-    print(f'used mem+ {used_mem_start4 - used_mem_start3:_}')
+    print(f'used mem+ {used_mem_start4 - used_mem_start3:,}')
+
+
+if __name__ == '__main__':
+    filename = 'D:/slides/9838562/9838562.zarr'
+    read_memory_source(filename)
