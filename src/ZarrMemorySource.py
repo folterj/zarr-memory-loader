@@ -27,6 +27,9 @@ class ZarrMemorySource:
         store = parse_url(self.uri).store
         root = zarr.open(store=store, mode='r')
         dest_root = zarr.open(store=self.store, mode='a')
+
+        #zarr.copy()  # same functionality, including compression options passed via kwargs?
+
         for group_key, node in root.items():
             dest_group = dest_root.create_group(name=group_key)
             for array_key, data in node.items():

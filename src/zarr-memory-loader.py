@@ -4,6 +4,7 @@ import psutil
 import time
 import timeit
 
+from src.CompressedSource import CompressedSource
 from src.ZarrMemorySource import ZarrMemorySource
 
 
@@ -64,6 +65,14 @@ def read_memory_source(filename):
     print(f'used mem+ {used_mem_start4 - used_mem_start3:,}')
 
 
+def read_compressed_source(filename):
+    source = CompressedSource(filename)
+    source.init()
+
+
 if __name__ == '__main__':
     filename = 'D:/slides/9838562/9838562.zarr'
-    read_memory_source(filename)
+    #filename = 'E:/Personal/Crick/slides/tracerx/K021_PR001.ome.tiff'   # large
+    #filename = 'E:/Personal/Crick/slides/tracerx/K130_PR003.ome.tiff'   # small
+    #read_memory_source(filename)
+    read_compressed_source(filename)
