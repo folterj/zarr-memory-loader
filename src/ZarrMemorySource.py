@@ -15,11 +15,11 @@ class ZarrMemorySource:
         copy_store(file_store, self.store)  # not yet implemented in zarr v3
         file_store.close()
 
-    def load_and_compress(self, compression='blosc', swap_axes=False):
+    def load_and_compress(self, compression='blosc', compression_level=None, swap_axes=False):
         if compression and 'xr' in compression.lower():
             from imagecodecs.numcodecs import Jpegxr    # Note: Jpegxr from imagecodecs-2024.9.22 spams performance messages
             zarr.register_codec(Jpegxr)
-            compressor = zarr.get_codec({'id': Jpegxr.codec_id, 'level': 75})    # , 'level': 5
+            compressor = zarr.get_codec({'id': Jpegxr.codec_id, 'level': compression_level})
         else:
             compressor = zarr.get_codec({'id': compression})
 
@@ -28,9 +28,14 @@ class ZarrMemorySource:
         root = zarr.open(store=store, mode='r')
         dest_root = zarr.open(store=self.store, mode='a')
 
-        #zarr.copy()  # same functionality, including compression options passed via kwargs?
+        self.copy(root, dest_root, compressor=compressor, swap_axes=swap_axes)
 
-        for group_key, node in root.items():
+    def copy_builtin(self, source_root, dest_root, compressor=None, swap_axes=False):
+        # same functionality, including compression options passed via kwargs?
+        zarr.copy(source_root, dest_root, 'name', compressor=compressor)
+
+    def copy(self, source_root, dest_root, compressor=None, swap_axes=False):
+        for group_key, node in source_root.items():
             dest_group = dest_root.create_group(name=group_key)
             for array_key, data in node.items():
                 if swap_axes:
@@ -42,7 +47,8 @@ class ZarrMemorySource:
                 dest_data = dest_group.create(name=array_key, shape=shape, chunks=chunks,
                                                dtype=data.dtype, compressor=compressor)
                 if swap_axes:
-                    data2 = np.moveaxis(data[:].squeeze(), 0, -1)
+                    data2 = np.moveaxis(np.squeeze(data), 0, -1)
+                    # always seems to become ndarray, even with da.squeeze or data[0, :, 0, :, :]
                 else:
                     data2 = data
                 dest_data[:] = data2

@@ -24,7 +24,7 @@ def load_zarr_source(uri, level=0):
     return data, dim_order
 
 
-def load_ome_zarr_source(uri, level=0):
+def load_ome_zarr_source(uri, level=None):
     data = None
     dim_order = None
 
@@ -41,32 +41,40 @@ def load_ome_zarr_source(uri, level=0):
             nodes = list(reader())
     if nodes:
         node0 = nodes[0]
-        data = node0.data[level]
+        if level is not None:
+            data = node0.data[level]
+        else:
+            data = node0.data
         metadata = node0.metadata
         axes = metadata.get('axes', [])
         dim_order = ''.join([axis.get('name') for axis in axes])
     return data, dim_order
 
 
-def load_tiff_source(uri, level=0):
+def load_tiff_source(uri, level=None):
+    data = []
     with TiffFile(uri) as tiff:
         if tiff.series:
             page = tiff.series[0]
         else:
             page = tiff.pages.first
-        if level > 0:
-            page = page.levels[level]
-        shape = page.shape
-        dtype = page.dtype
-        dim_order = page.axes.lower().replace('s', 'c').replace('r', '')
+        levels = level + 1 if level is not None else len(page.levels)
+        for level1 in range(levels):
+            level_page = page.levels[level1]
+            shape = level_page.shape
+            dtype = level_page.dtype
+            dim_order = level_page.axes.lower().replace('s', 'c').replace('r', '')
 
-        lazy_array = dask.delayed(imread)(uri)
-        data = da.from_delayed(lazy_array, shape=shape, dtype=dtype)
+            lazy_array = dask.delayed(imread)(uri, level=level1)
+            data.append(da.from_delayed(lazy_array, shape=shape, dtype=dtype))
 
+    if level is not None:
+        data = data[0]
     return data, dim_order
 
 
-def load_source(uri, level=0):
+def load_source(uri, level=None):
+    # if level is None, load all pyramid levels
     ext = os.path.splitext(uri)[1].lower()
     if 'zarr' in ext:
         return load_ome_zarr_source(uri, level)
